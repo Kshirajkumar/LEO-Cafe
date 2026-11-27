@@ -1,0 +1,12 @@
+const authMessage = document.querySelector('#authMessage');
+const authForm = document.querySelector('#authForm');
+const authTabs = document.querySelectorAll('.auth-tab');
+let authMode = 'login';
+const client = window.supabase && window.LEO_SUPABASE ? window.supabase.createClient(window.LEO_SUPABASE.url, window.LEO_SUPABASE.publishableKey) : null;
+window.LEO_AUTH = { client, user: null };
+window.LEO_AUTH_READY = (async () => { if (!client) return null; const { data } = await client.auth.getSession(); window.LEO_AUTH.user = data.session?.user || null; return window.LEO_AUTH.user; })();
+function message(text, error = false) { if (!authMessage) return; authMessage.textContent = text; authMessage.className = `auth-message ${error ? 'error' : ''}`; }
+if (authForm) {
+  authTabs.forEach(tab => tab.onclick = () => { authMode = tab.dataset.mode; authTabs.forEach(x => x.classList.toggle('active', x === tab)); document.querySelector('.signup-only').hidden = authMode !== 'signup'; document.querySelector('#authSubmit').innerHTML = authMode === 'signup' ? 'Create account <span>→</span>' : 'Sign in <span>→</span>'; document.querySelector('#authPassword').autocomplete = authMode === 'signup' ? 'new-password' : 'current-password'; message(''); });
+  authForm.onsubmit = async event => { event.preventDefault(); const email = document.querySelector('#authEmail').value.trim(); const password = document.querySelector('#authPassword').value; const name = document.querySelector('#authName').value.trim(); if (authMode === 'signup' && !name) return message('Please enter your name.', true); if (!client) return message('Supabase Auth is not available. Check supabase-config.js.', true); document.querySelector('#authSubmit').disabled = true; message('One moment…'); const result = authMode === 'signup' ? await client.auth.signUp({ email, password, options: { data: { display_name: name } } }) : await client.auth.signInWithPassword({ email, password }); document.querySelector('#authSubmit').disabled = false; if (result.error) return message(result.error.message, true); if (authMode === 'signup' && !result.data.session) return message('Check your email to confirm your account, then sign in.'); window.LEO_AUTH.user = result.data.user; localStorage.setItem('leo-display-name', name || result.data.user.user_metadata?.display_name || email.split('@')[0]); location.href = new URLSearchParams(location.search).get('next') || 'menu.html'; };
+}
